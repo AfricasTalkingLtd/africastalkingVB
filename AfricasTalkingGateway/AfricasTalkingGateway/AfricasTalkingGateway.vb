@@ -1,12 +1,17 @@
 
 Option Strict Off
+
+Imports System.Globalization
 Imports System.IO
 Imports System.Net
 Imports System.Net.Http
 Imports System.Text
+Imports System.Text.RegularExpressions
 Imports System.Web
 Imports Newtonsoft.Json
 Imports Newtonsoft.Json.Linq
+Imports Enumerable = System.Linq.Enumerable
+
 Public Class AfricasTalkingGateway
     Private ReadOnly _username As String
     Private ReadOnly _apikey As String
@@ -26,52 +31,61 @@ Public Class AfricasTalkingGateway
         End If
     End Sub
 
+    Public Sub New()
+    End Sub
+
     'Change the debug flag to true to view the full response
     Private DEBUG As Boolean = False
     Private _responseCode As Integer
 
 
     Public Function SendMessage([to] As String, message As String, Optional ByVal recipient As String = Nothing, Optional ByVal bulkSmsMode As Integer = 1, Optional ByVal options As Hashtable = Nothing) As String
-        Dim data As New Hashtable()
-        data("username") = _username
-        data("to") = [to]
-        data("message") = message
 
-        If recipient IsNot Nothing Then
-            data("from") = recipient
-            data("bulkSMSMode") = Convert.ToString(bulkSmsMode)
+        Dim numbers() As String = [to].Split(separator:={","c}, options:=StringSplitOptions.RemoveEmptyEntries)
+        Dim isValidphoneNumber = IsPhoneNumber(numbers)
+        If [to].Length = 0 OrElse message.Length = 0 OrElse Not isValidphoneNumber Then
+            Throw New AfricasTalkingGatewayException("The message is either empty or phone number(s) is not valid")
+        Else
+            Dim data As New Hashtable()
+                data("username") = _username
+                data("to") = [to]
+                data("message") = message
 
-            If options IsNot Nothing Then
-                If options.Contains("keyword") Then
-                    data("keyword") = options("keyword")
-                End If
+            If recipient IsNot Nothing Then
+                data("from") = recipient
+                data("bulkSMSMode") = Convert.ToString(bulkSmsMode)
 
-                If options.Contains("linkId") Then
-                    data("linkId") = options("linkId")
-                End If
+                If options IsNot Nothing Then
+                    If options.Contains("keyword") Then
+                        data("keyword") = options("keyword")
+                    End If
 
-                If options.Contains("enqueue") Then
-                    data("enqueue") = options("enqueue")
-                End If
+                    If options.Contains("linkId") Then
+                        data("linkId") = options("linkId")
+                    End If
 
-                If options.Contains("retryDurationInHours") Then
-                    data("retryDurationInHours") = options("retryDurationInHours")
+                    If options.Contains("enqueue") Then
+                        data("enqueue") = options("enqueue")
+                    End If
+
+                    If options.Contains("retryDurationInHours") Then
+                        data("retryDurationInHours") = options("retryDurationInHours")
+                    End If
                 End If
             End If
-        End If
-
-        Dim response As String = SendPostRequest(data, SmsUrlString)
-        If _responseCode = CInt(HttpStatusCode.Created) Then
-            Dim json As String = JsonConvert.DeserializeObject(Of String)(response)
-            Dim recipients As String = json
-            If recipients.Length > 0 Then
-                Return recipients
+            Dim response As String = SendPostRequest(data, SmsUrlString)
+            If _responseCode = CInt(HttpStatusCode.Created) Then
+                Dim json As String = JsonConvert.DeserializeObject(Of String)(response)
+                Dim recipients As String = json
+                If recipients.Length > 0 Then
+                    Return recipients
+                End If
+                Throw New AfricasTalkingGatewayException("An error ocurred during this process")
             End If
-            Throw New AfricasTalkingGatewayException("An error ocurred during this process")
-
+            Throw New AfricasTalkingGatewayException(response)
         End If
-        Throw New AfricasTalkingGatewayException(response)
     End Function
+
 
     Public Function FetchMessages(ByVal lastReceivedId As Integer) As String
         Dim url As String = SmsUrlString & "?username=" & _username & "&lastReceivedId=" & Convert.ToString(lastReceivedId)
@@ -191,6 +205,306 @@ Public Class AfricasTalkingGateway
         Throw New AfricasTalkingGatewayException(response)
     End Function
 
+    Public Function CreateCheckoutToken(ByVal phoneNumber As String) As String
+        Dim numbers() As String = phoneNumber.Split(separator:={","c}, options:=StringSplitOptions.RemoveEmptyEntries)
+        If Not IsPhoneNumber(numbers) Then
+            Throw New AfricasTalkingGatewayException("The phone number supplied is not valid")
+        Else
+            Try
+                Dim payload = New Hashtable()
+                payload("phoneNumber") = phoneNumber
+                Dim response = SendPostRequest(payload, TokenCreateUrl)
+                Dim tokenRes As String = JObject.Parse(response)
+                Return tokenRes
+            Catch e As AfricasTalkingGatewayException
+                Throw New AfricasTalkingGatewayException("An error ocurred while creating this token: " & e.Message)
+            End Try
+        End If
+    End Function
+
+    Public Function InitiateUssdPushRequest(phoneNumber As String, prompt As String, checkoutToken As String) As String
+        Dim numbers() As String = phoneNumber.Split(separator:={","c}, options:=StringSplitOptions.RemoveEmptyEntries)
+        If Not IsValidToken(checkoutToken) OrElse prompt.Length = 0 OrElse Not IsPhoneNumber(numbers) Then
+            Throw New AfricasTalkingGatewayException("One or some of the arguments supplied are invalid.")
+        End If
+
+        Try
+            Dim data = New Hashtable()
+            data("username") = _username
+            data("phoneNumber") = phoneNumber
+            data("menu") = prompt
+            data("checkoutToken") = checkoutToken
+            Dim apiPath = UssdPushUrl
+            Dim response = SendPostRequest(data, apiPath)
+            Dim res As Object = JObject.Parse(response)
+            Return res
+        Catch e As Exception
+            Throw New AfricasTalkingGatewayException(e.Message & e.StackTrace)
+        End Try
+    End Function
+
+    ' Payments Section
+
+    Public Function InitiateMobilePaymentCheckout(productName As String, phoneNumber As String, currencyCode As String, amount As Decimal, providerChannel As String, Optional _
+                                                     ByVal metadata As Dictionary(Of String, String) = Nothing) As String
+
+        Dim symbol As String = Nothing
+        Dim numbers() As String = phoneNumber.Split(separator:={","c}, options:=StringSplitOptions.RemoveEmptyEntries)
+
+        If IsValidProductName(productName) OrElse Not IsPhoneNumber(numbers) OrElse Not IsValidCurrency(currencyCode, symbol) OrElse providerChannel.Length = 0 Then
+            Throw New AfricasTalkingGatewayException("Missing or malformed arguments :  invalid currency symbol or phonenumber or product name")
+        End If
+        Try
+            Return PostAsJson(New CheckoutData() With {
+                                 .Username = _username,
+                                 .ProductName = productName,
+                                 .PhoneNumber = phoneNumber,
+                                 .CurrencyCode = currencyCode,
+                                 .Amount = amount,
+                                 .ProviderChannel = providerChannel,
+                                 .Metadata = metadata
+                                 }, PaymentsUrlString)
+        Catch checkoutException As Exception
+            Throw New AfricasTalkingGatewayException("There was a problem processing Mobile Checkout: " & checkoutException.Message)
+        End Try
+    End Function
+
+    Public Function MobileB2B(productName As String, provider As String, transferType As String, currencyCode As String, amount As Integer, destinationChannel As String, destinationAccount As String, Optional ByVal metadata As Dictionary(Of String, String) = Nothing) As String
+        Dim cSym As String = Nothing
+        If IsValidProductName(productName) OrElse provider.Length = 0 OrElse transferType.Length = 0 OrElse Not IsValidCurrency(currencyCode, cSym) OrElse destinationAccount.Length = 0 OrElse destinationChannel.Length = 0 Then
+            Throw New AfricasTalkingGatewayException("Invalid arguments")
+        End If
+
+        Dim btob = New B2BData With {
+                .Username = _username,
+                .ProductName = productName,
+                .Provider = provider,
+                .TransferType = transferType,
+                .CurrencyCode = currencyCode,
+                .Amount = amount,
+                .DestinationAccount = destinationAccount,
+                .DestinationChannel = destinationChannel,
+                .Metadata = metadata
+                }
+        Try
+            Dim response = PostB2BJson(btob, PaymentsB2BUrlString)
+            Return response
+        Catch e As Exception
+            Throw New AfricasTalkingGatewayException(message:="An error occurred during B2B Request Processing: " & e.Message)
+        End Try
+    End Function
+
+    Public Function MobilePaymentB2CRequest(productName As String, recipients As IList(Of MobilePaymentB2CRecipient)) As String
+        If IsValidProductName(productName) Then
+            Throw New AfricasTalkingGatewayException("Malformed product name")
+        End If
+
+        Dim requestBody = New RequestBody With {
+                .ProductName = productName,
+                .UserName = _username,
+                .Recipients = recipients.ToList()
+                }
+        Dim response = Post(requestBody, PaymentsB2CUrlString)
+        Return response
+
+    End Function
+
+    Public Function BankTransfer(productName As String, recipients As IEnumerable(Of BankTransferRecipients)) As String
+        If IsValidProductName(productName) Then
+            Throw New AfricasTalkingGatewayException("Not a valid product name")
+        End If
+
+        Dim transferDetails = New BankTransfer() With {
+                .Recipients = recipients.ToList(),
+                .ProductName = productName,
+                .Username = _username
+                }
+
+        Try
+            Dim bankTransferRes = ProcessBankTransfer(transferDetails, BankTransferUrl)
+            Return bankTransferRes
+        Catch exception As Exception
+            Throw New AfricasTalkingGatewayException(exception)
+        End Try
+    End Function
+
+    Public Function BankCheckout(productName As String, bankAccount As BankAccount, currencyCode As String, amount As Decimal, narration As String, Optional ByVal metadata As Dictionary(Of String, String) = Nothing) As String
+        Dim curSym As String = Nothing
+        If IsValidProductName(productName) <> 0 AndAlso IsValidCurrency(currencyCode, curSym) AndAlso narration.Length <> 0 Then
+            Dim bankCheckoutData = New BankCheckout() With {
+                    .Username = _username,
+                    .productName = productName,
+                    .currencyCode = currencyCode,
+                    .amount = amount,
+                    .narration = narration,
+                    .bankAccount = bankAccount
+                    }
+            If metadata IsNot Nothing Then
+                bankCheckoutData.Metadata = metadata
+            End If
+
+            Try
+                Dim response = ProcessBankCheckout(bankCheckoutData, BankCheckoutUrl)
+                Return response
+            Catch exception As Exception
+                Throw New AfricasTalkingGatewayException(exception)
+            End Try
+        Else
+            Throw New AfricasTalkingGatewayException("Invalid arguments")
+        End If
+    End Function
+
+    Public Function OtpValidateCard(transactionId As String, otp As String) As String
+        If transactionId.Length < 32 OrElse otp.Length < 3 OrElse Not IsValidTransactionId(transactionId) Then
+            Throw New AfricasTalkingGatewayException("Incorrect Transaction ID or invalid OTP length(Less than 3 characters or digits)")
+        End If
+
+        Dim cardOtp = New OTP With {
+                .Otp = otp,
+                .TransactionId = transactionId,
+                .Username = _username
+                }
+
+        Try
+            Dim cardOtpResult = ProcessOtp(cardOtp, CardOtpValidationUrl)
+            Return cardOtpResult
+        Catch exception As Exception
+            Throw New AfricasTalkingGatewayException(message:="An error ocuured during OTP Card Validation: " & exception.Message)
+        End Try
+    End Function
+
+    Public Function OtpValidateBank(transactionId As String, otp As String) As String
+        Dim otpValidate = New OTP With {
+                .Username = _username,
+                .TransactionId = transactionId,
+                .Otp = otp
+                }
+        Try
+            Dim bankOtpResult = ProcessOtp(otpValidate, BankOtpValidationUrl)
+            Return bankOtpResult
+        Catch exception As Exception
+            Throw New AfricasTalkingGatewayException(exception)
+        End Try
+    End Function
+
+    Public Function CardCheckout(productName As String, paymentCard As PaymentCard, currencyCode As String, amount As Decimal, narration As String, Optional ByVal metadata As Dictionary(Of String, String) = Nothing, Optional ByVal checkoutToken As String = Nothing) As String
+        Dim curSym As String = Nothing
+        If productName.Length <> 0 AndAlso IsValidCurrency(currencyCode, curSym) AndAlso narration.Length <> 0 Then
+
+            Dim checkoutDetails = New CardDetails With {
+                    .Username = _username,
+                    .ProductName = productName,
+                    .CurrencyCode = currencyCode,
+                    .PaymentCard = paymentCard,
+                    .Amount = amount,
+                    .Narration = narration
+                    }
+            If metadata IsNot Nothing Then
+                checkoutDetails.Metadata = metadata
+            End If
+
+            If checkoutToken IsNot Nothing Then
+                checkoutDetails.CheckoutToken = checkoutToken
+            End If
+
+            Try
+                Dim response = ProcessCardCheckout(checkoutDetails, CardCheckoutUrl)
+                Return response
+            Catch exception As Exception
+                Throw New AfricasTalkingGatewayException(exception)
+            End Try
+        Else
+            Throw New AfricasTalkingGatewayException("Invalid arguments")
+        End If
+    End Function
+
+    ' End Payments Section
+
+    ' Regex and Validators
+
+    Private Shared Function IsPhoneNumber(number() As String) As Boolean
+        Return Enumerable.Aggregate(Of Object, Boolean)((From num In number Select Regex.Match(num, "^\+?(\d[\d-. ]+)?(\([\d-. ]+\))?[\d-. ]+\d{5,}$").Success), True, Function(current, status) current And status)
+    End Function
+
+    Private Shared Function IsValidTransactionId(transactionId As String) As Boolean
+        Return Regex.Match(transactionId, "^ATPid_.*$").Success AndAlso transactionId.Length > 7
+    End Function
+
+    Private Shared Function IsValidToken(token As String) As Boolean
+        Return Regex.Match(token, "^CkTkn_.*$").Success AndAlso token.Length > 7
+    End Function
+
+    Private Shared Function IsValidProductName(productName As String) As Boolean
+        Return productName.Length > 0
+    End Function
+
+    Private Shared Function IsValidCurrency(isoCurrency As String, ByRef symbol As String) As Boolean
+        symbol = CultureInfo.GetCultures(CultureTypes.AllCultures).Where(Function(c) Not c.IsNeutralCulture).Select(Function(culture)
+                                                                                                                        Try
+                                                                                                                            Return New RegionInfo(culture.LCID)
+                                                                                                                        Catch
+                                                                                                                            Return Nothing
+                                                                                                                        End Try
+                                                                                                                    End Function).Where(Function(ri) ri IsNot Nothing AndAlso ri.ISOCurrencySymbol = isoCurrency).Select(Function(ri) ri.CurrencySymbol).FirstOrDefault()
+        Return symbol IsNot Nothing
+    End Function
+
+    ' End Regex and Validators
+
+    ' Processes
+
+    Private Function ProcessBankTransfer(transfer As BankTransfer, url As String) As String
+        Dim transferClient = New HttpClient()
+        Dim content As HttpContent = New StringContent(transfer.ToString(), Encoding.UTF8, "application/json")
+        transferClient.DefaultRequestHeaders.Add("apiKey", _apikey)
+        Dim transferResult = transferClient.PostAsync(url, content).Result
+        transferResult.EnsureSuccessStatusCode()
+        Dim transferRes = transferResult.Content.ReadAsStringAsync().Result
+        Return transferRes
+    End Function
+
+    Private Function ProcessBankCheckout(bankCheckout As BankCheckout, url As String) As String
+        Dim bankCheckoutClient = New HttpClient()
+        Dim bankCheckoutContent As HttpContent = New StringContent(bankCheckout.ToString(), Encoding.UTF8, "application/json")
+        bankCheckoutClient.DefaultRequestHeaders.Add("apiKey", _apikey)
+        Dim bankCheckoutResult = bankCheckoutClient.PostAsync(url, bankCheckoutContent).Result
+        bankCheckoutResult.EnsureSuccessStatusCode()
+        Dim bankCheckoutRes = bankCheckoutResult.Content.ReadAsStringAsync().Result
+        Return bankCheckoutRes
+    End Function
+
+    Private Function ProcessCardCheckout(cardDetails As CardDetails, cardCkUrl As String) As String
+        Dim cardCheckoutClient = New HttpClient()
+        Dim cardCheckoutContent As HttpContent = New StringContent(cardDetails.ToString(), Encoding.UTF8, "application/json")
+        cardCheckoutClient.DefaultRequestHeaders.Add("apiKey", _apikey)
+        Dim cardCheckoutResult = cardCheckoutClient.PostAsync(cardCkUrl, cardCheckoutContent).Result
+        cardCheckoutResult.EnsureSuccessStatusCode()
+        Dim checkoutResult = cardCheckoutResult.Content.ReadAsStringAsync().Result
+        Return checkoutResult
+    End Function
+
+    Private Function ProcessOtp(otp As OTP, otpUrl As String) As String
+        Dim otpClient = New HttpClient()
+        Dim otpContent As HttpContent = New StringContent(otp.ToString(), Encoding.UTF8, "application/json")
+        otpClient.DefaultRequestHeaders.Add("apiKey", _apikey)
+        Dim otpResult = otpClient.PostAsync(otpUrl, otpContent).Result
+        otpResult.EnsureSuccessStatusCode()
+        Dim otpRes = otpResult.Content.ReadAsStringAsync().Result
+        Return otpRes
+    End Function
+
+    Private Function Post(body As RequestBody, url As String) As String
+        Dim httpClient = New HttpClient()
+        Dim httpContent As HttpContent = New StringContent(body.ToString(), Encoding.UTF8, "application/json")
+        httpClient.DefaultRequestHeaders.Add("apiKey", _apikey)
+        Dim result = httpClient.PostAsync(url, httpContent).Result
+        result.EnsureSuccessStatusCode()
+        Dim postResult As String = result.Content.ReadAsStringAsync().Result
+        Dim jsonOutput As String
+        jsonOutput = JsonConvert.SerializeObject(postResult)
+        Return jsonOutput
+    End Function
+
     Private Function SendPostRequest(dataMap As Hashtable, urlString As String) As String
         Try
             Dim dataStr As String = ""
@@ -303,7 +617,6 @@ Public Class AfricasTalkingGateway
     Private Function PostAsJson(dataMap As CheckoutData, url As String) As String
         Dim client = New HttpClient()
         Dim contentPost As HttpContent = New StringContent(dataMap.ToString(), Encoding.UTF8, "application/json")
-        ' Complex object
         client.DefaultRequestHeaders.Add("apiKey", _apikey)
         Dim result = client.PostAsync(url, contentPost).Result
         result.EnsureSuccessStatusCode()
@@ -311,24 +624,6 @@ Public Class AfricasTalkingGateway
         Dim jsonOutput As String
         jsonOutput = JsonConvert.SerializeObject(stringResult)
         Return jsonOutput
-    End Function
-
-    Public Function InitiateMobilePaymentCheckout(productName As String, phoneNumber As String, currencyCode As String, amount As Integer, providerChannel As String, Optional _
-                                                     ByVal metadata As Dictionary(Of String, String) = Nothing) As String
-
-        Try
-            Return PostAsJson(New CheckoutData() With {
-            .Username = _username,
-            .ProductName = productName,
-            .PhoneNumber = phoneNumber,
-            .CurrencyCode = currencyCode,
-            .Amount = amount,
-            .ProviderChannel = providerChannel,
-            .Metadata = metadata
-        }, PaymentsUrlString)
-        Catch checkoutException As Exception
-            Throw New AfricasTalkingGatewayException("There was a problem processing Mobile Checkout: " & checkoutException.Message)
-        End Try
     End Function
 
     Private Function PostB2BJson(dataMap As B2BData, url As String) As String
@@ -340,48 +635,6 @@ Public Class AfricasTalkingGateway
         Dim stringResult As String = result.Content.ReadAsStringAsync().Result
         Dim jsonOutput As String
         jsonOutput = JsonConvert.SerializeObject(stringResult)
-        Return jsonOutput
-
-    End Function
-
-    Public Function MobileB2B(productName As String, provider As String, transferType As String, currencyCode As String, amount As Integer, destinationChannel As String, destinationAccount As String, Optional ByVal metadata As Dictionary(Of String, String) = Nothing) As String
-
-        Try
-            Return PostB2BJson(dataMap:=New B2BData() With {
-            .Username = _username,
-            .ProductName = productName,
-            .Provider = provider,
-            .TransferType = transferType,
-            .CurrencyCode = currencyCode,
-            .Amount = amount,
-            .DestinationChannel = destinationChannel,
-            .DestinationAccount = destinationAccount,
-            .Metadata = metadata
-        }, url:=PaymentsB2BUrlString)
-        Catch mobileB2BException As Exception
-            Throw New AfricasTalkingGatewayException("There was a problem processing Mobile B2B Request: " & mobileB2BException.Message)
-        End Try
-    End Function
-
-    Public Function MobilePaymentB2CRequest(productName As String, recipients As IList(Of MobilePaymentB2CRecipient)) As String
-
-        Return Post(New RequestBody With {
-            .ProductName = productName,
-            .UserName = _username,
-            .Recipients = recipients.ToList()
-        }, PaymentsB2CUrlString)
-    End Function
-
-    Private Function Post(body As RequestBody, url As String) As String
-        Dim httpClient = New HttpClient()
-        Dim httpContent As HttpContent = New StringContent(body.ToString(), Encoding.UTF8, "application/json")
-        httpClient.DefaultRequestHeaders.Add("apiKey", _apikey)
-        Dim result = httpClient.PostAsync(url, httpContent).Result
-        result.EnsureSuccessStatusCode()
-        Dim postResult As String = result.Content.ReadAsStringAsync().Result
-
-        Dim jsonOutput As String
-        jsonOutput = JsonConvert.SerializeObject(postResult)
         Return jsonOutput
 
     End Function
@@ -447,6 +700,48 @@ Public Class AfricasTalkingGateway
     Private ReadOnly Property PaymentsB2CUrlString() As String
         Get
             Return PaymentHost & "/mobile/b2c/request"
+        End Get
+    End Property
+
+    Private ReadOnly Property CardOtpValidationUrl() As String
+        Get
+            Return PaymentHost & "/card/checkout/validate"
+        End Get
+    End Property
+
+    Private ReadOnly Property CardCheckoutUrl() As String
+        Get
+            Return PaymentHost & "/card/checkout/charge"
+        End Get
+    End Property
+
+    Private ReadOnly Property BankCheckoutUrl() As String
+        Get
+            Return PaymentHost & "/bank/checkout/charge"
+        End Get
+    End Property
+
+    Private ReadOnly Property BankOtpValidationUrl() As String
+        Get
+            Return PaymentHost & "/bank/checkout/validate"
+        End Get
+    End Property
+
+    Private ReadOnly Property BankTransferUrl() As String
+        Get
+            Return PaymentHost & "/bank/transfer"
+        End Get
+    End Property
+
+    Private ReadOnly Property TokenCreateUrl() As String
+        Get
+            Return ApiHost & "/checkout/token/create"
+        End Get
+    End Property
+
+    Private ReadOnly Property UssdPushUrl() As String
+        Get
+            Return ApiHost & "/ussd/push/request"
         End Get
     End Property
 
