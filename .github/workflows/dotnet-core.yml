@@ -1,4 +1,4 @@
-name: .NETBuild
+name: VBBuild
 
 on:
   push:
@@ -27,6 +27,6 @@ jobs:
     - name: Publish Package
       uses: brandedoutcast/publish-nuget@v2.5.5
       with:
-          PROJECT_FILE_PATH: AfricasTalkingGateway/AfricasTalkingGateway/AfricasTalkingGateway.vbproj
+          PROJECT_FILE_PATH: AfricasTalkingGateway/AfricasTalkingGateway.vbproj
           NUGET_KEY: ${{secrets.NUGET_VB_API_KEY}}
           PACKAGE_NAME: AfricasTalking.NET.VB

@@ -1,5 +1,9 @@
 # Official Africa's Talking VB.NET API wrapper  
 
+![Build Status](https://github.com/AfricasTalkingLtd/africastalkingVB/workflows/VBBuild/badge.svg)
+ 
+[![NuGet](https://img.shields.io/nuget/v/AfricasTalking.NET.VB?style=for-the-badge)](https://www.nuget.org/packages/AfricasTalking.NET.VB/)
+
 The Africa's Talking VB.NET API wrapper provides convenient access to the Africa's Talking API from applications written in VB.NET. With support for .NET Standard 2.0 + . 
 
 ## Documentation 
