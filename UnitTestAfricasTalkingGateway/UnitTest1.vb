@@ -8,7 +8,6 @@ Namespace UnitTestAfricasTalkingGateway
         Dim apikey As String = "6c36e56b86c24c2ff66adaff340d60793dff71ac304bc551f7056ca76dd8032a"
         ReadOnly _gateway As New AfricasTalkingGateway(username, apikey)
 
-
         <TestMethod()>
         Public Sub TestSendMessage()
             'Tests that we can successfully Send Messages
@@ -48,6 +47,7 @@ Namespace UnitTestAfricasTalkingGateway
             Assert.IsTrue(tokenStatus)
         End Sub
 
+        <Ignore()>
         <TestMethod()>
         Public Sub TestCreateSubscription()
             Dim phoneNumber As String = "+254720000001"
@@ -93,6 +93,7 @@ Namespace UnitTestAfricasTalkingGateway
             Assert.IsTrue(callStatus)
         End Sub
 
+        <Ignore()>
         <TestMethod()>
         Public Sub TestMobileCheckout()
             Dim productName As String = "coolproduct"
@@ -109,6 +110,7 @@ Namespace UnitTestAfricasTalkingGateway
             Assert.IsTrue(mobileCheckoutStatus)
         End Sub
 
+        <Ignore()>
         <TestMethod()>
         Public Sub TestB2BPayments()
             Dim productName As String = "awesomeproduct"
@@ -152,6 +154,7 @@ Namespace UnitTestAfricasTalkingGateway
             Assert.IsTrue(isTransferInitiated)
         End Sub
 
+        <Ignore()>
         <TestMethod()>
         Public Sub TestBankTransfer()
             Dim productname As String = "coolproduct"
@@ -181,6 +184,7 @@ Namespace UnitTestAfricasTalkingGateway
             Assert.IsTrue(bankTransferStatus)
         End Sub
 
+        <Ignore()>
         <TestMethod()>
         Public Sub TestBankChekout()
             Dim productName As String = "coolproduct"
@@ -201,6 +205,7 @@ Namespace UnitTestAfricasTalkingGateway
             Assert.IsTrue(checkoutStatus)
         End Sub
 
+        <Ignore()>
         <TestMethod()>
         Public Sub TestCardCheckout()
             Const productName As String = "awesomeproduct"
@@ -224,6 +229,7 @@ Namespace UnitTestAfricasTalkingGateway
         End Sub
  
  '  TBD Test Bank OTP 
+        <Ignore()>
         <TestMethod()>
         Public Sub TestCardOtpValidation()
             Const transId As String = "ATPid_ee698c34c7d807ff55da8a9033dcfecd"
