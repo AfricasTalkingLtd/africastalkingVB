@@ -1,6 +1,6 @@
 # Official Africa's Talking VB.NET API wrapper  
 
-The Africa's Talking VB.NET API wrapper provides convenient access to the Africa's Talking API from applications written in VB.NET. With support for .NET Standard 2.0. 
+The Africa's Talking VB.NET API wrapper provides convenient access to the Africa's Talking API from applications written in VB.NET. With support for .NET Standard 2.0 + . 
 
 ## Documentation 
 Take a look at the [API docs here](http://docs.africastalking.com/) for more information. 
@@ -15,7 +15,7 @@ Take a look at the [API docs here](http://docs.africastalking.com/) for more inf
 
 + From the _command prompt/powershell window_ opened in your project directory, key in the following and press *Enter*. 
 ```powershell 
- dotnet add package AfricasTalking.NET.VB --version 2.1.1
+ dotnet add package AfricasTalking.NET.VB --version 2.2.0
 ```
 > Ensure you have the latest version of the package. Visit [Nuget](https://www.nuget.org/packages/AfricasTalking.NET.VB/) for more info on the latest release of this package. 
 
@@ -23,7 +23,7 @@ Take a look at the [API docs here](http://docs.africastalking.com/) for more inf
 
 + On your Nuget package manager console,key in the following and press *Enter* 
 ```powershell 
-Install-Package AfricasTalking.NET.VB -Version 2.1.1
+Install-Package AfricasTalking.NET.VB -Version 2.2.0
 ```
 > Ensure you have the latest version of the package. Visit [Nuget](https://www.nuget.org/packages/AfricasTalking.NET.VB/) for more info on the latest release of this package
 
@@ -50,7 +50,7 @@ The package needs to be configured with your Africa's Talking username and API k
 
 ### SMS 
 
-#### [Sending SMS](http://docs.africastalking.com/sms/sending) 
+#### [Sending Bulk SMS](http://docs.africastalking.com/sms/sending) 
 
 - `SendMessage(to,message,sender,bulkSmsMode,options)` :  The following arguments are supplied to facilitate sending of messages via our APIs  
 
@@ -79,6 +79,37 @@ Dim recipients As String = "+254714587654,+254791854473,+254712965433"
 Dim result As String = _gateway.SendMessage(recipients, message) 
 
 ```
+
+#### [Sending Premium SMS](http://docs.africastalking.com/sms/sending) 
+
+- `SendPremiumMessage(to,message,sender,bulkSmsMode,options)` :  The following arguments are supplied to facilitate sending of messages via our APIs  
+
+    - `to` : The recipient(s) expecting the message 
+    - `message` : The SMS body. 
+    - `sender` :  (`Optional`) The Short-code or Alphanumeric ID that is associated with an Africa's Talking account.  
+    - `bulkSmsMode` (`Optional`) : This parameter will be used by the Mobile Service Provider to determine who gets  billed for a message sent using a Mobile-Terminated Short-code. Must be set to  *1*  for Bulk SMS. .
+    - `options` :   (`Optional`). Passed as _key-value_ pairs 
+        -   `enque` : This parameter is used for Bulk SMS clients that would like deliver as many messages to the API before waiting for an Ack from the Telcos. If enabled, the API will store the messages in its databases and send them out asynchronously after responding to the request 
+        -   `keyword` : This parameter is used for premium services. It is essential for subscription premium services.
+        -   `linkId` : This parameter is used for premium services to send OnDemand messages. We forward the linkId to your application when the user send a message to your service. (Essential for premium subscription services) 
+        -   `retryDurationInHours` : This parameter is used for premium messages. It specifies the number of hours your subscription message should be retried in case it's not delivered to the subscriber. (Essential for premium subscription services)
+
+```vb 
+  
+Dim message As String = "My message"
+Dim recipient As String = "+25NNNNNNNN"
+Dim results As String = _gateway.SendPremiumMessage(recipient, message)  
+
+```
+
+```vb 
+
+Dim message As String = "This is a bulk SMS message"
+Dim recipients As String = "+254714587654,+254791854473,+254712965433"
+Dim result As String = _gateway.SendPremiumMessage(recipients, message) 
+
+```
+
 
 #### [Retrieving SMS](http://docs.africastalking.com/sms/fetchmessages)
 

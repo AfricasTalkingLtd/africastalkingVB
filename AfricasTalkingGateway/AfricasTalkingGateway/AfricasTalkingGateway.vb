@@ -72,7 +72,7 @@ Public Class AfricasTalkingGateway
                     End If
                 End If
             End If
-            Dim response As String = SendPostRequest(data, SmsUrlString)
+            Dim response As String = SendPostRequest(data, BulkSmsUrlString)
             If _responseCode = CInt(HttpStatusCode.Created) Then
                 Dim json As String = JsonConvert.DeserializeObject(Of String)(response)
                 Dim recipients As String = json
@@ -85,9 +85,55 @@ Public Class AfricasTalkingGateway
         End If
     End Function
 
+    Public Function SendPremiumMessage([to] As String, message As String, Optional ByVal sender As String = Nothing, Optional ByVal bulkSmsMode As Integer = 1, Optional ByVal options As Hashtable = Nothing) As String
+
+        Dim numbers() As String = [to].Split(separator:={","c}, options:=StringSplitOptions.RemoveEmptyEntries)
+        Dim isValidphoneNumber = IsPhoneNumber(numbers)
+        If [to].Length = 0 OrElse message.Length = 0 OrElse Not isValidphoneNumber Then
+            Throw New AfricasTalkingGatewayException("The message is either empty or phone number(s) is not valid")
+        Else
+            Dim data As New Hashtable()
+            data("username") = _username
+            data("to") = [to]
+            data("message") = message
+
+            If sender IsNot Nothing Then
+                data("from") = sender
+                data("bulkSMSMode") = Convert.ToString(bulkSmsMode)
+
+                If options IsNot Nothing Then
+                    If options.Contains("keyword") Then
+                        data("keyword") = options("keyword")
+                    End If
+
+                    If options.Contains("linkId") Then
+                        data("linkId") = options("linkId")
+                    End If
+
+                    If options.Contains("enqueue") Then
+                        data("enqueue") = options("enqueue")
+                    End If
+
+                    If options.Contains("retryDurationInHours") Then
+                        data("retryDurationInHours") = options("retryDurationInHours")
+                    End If
+                End If
+            End If
+            Dim response As String = SendPostRequest(data, PremiumSmsUrlString)
+            If _responseCode = CInt(HttpStatusCode.Created) Then
+                Dim json As String = JsonConvert.DeserializeObject(Of String)(response)
+                Dim recipients As String = json
+                If recipients.Length > 0 Then
+                    Return recipients
+                End If
+                Throw New AfricasTalkingGatewayException("An error ocurred during this process")
+            End If
+            Throw New AfricasTalkingGatewayException(response)
+        End If
+    End Function
 
     Public Function FetchMessages(ByVal lastReceivedId As Integer) As String
-        Dim url As String = SmsUrlString & "?username=" & _username & "&lastReceivedId=" & Convert.ToString(lastReceivedId)
+        Dim url As String = BulkSmsUrlString & "?username=" & _username & "&lastReceivedId=" & Convert.ToString(lastReceivedId)
         Dim response As String = SendGetRequest(url)
         If _responseCode = CInt(HttpStatusCode.OK) Then
             Dim json As String = JsonConvert.DeserializeObject(response)
@@ -609,10 +655,15 @@ Public Class AfricasTalkingGateway
         Get
             Return (If(ReferenceEquals(_environment, "sandbox"), "https://payments.sandbox.africastalking.com", "https://payments.africastalking.com"))
         End Get
-
     End Property
 
-    Private ReadOnly Property SmsUrlString() As String
+    Private ReadOnly Property PremiumSmsUrlString() As String
+        Get
+            Return (If(ReferenceEquals(_environment, "sandbox"), "https://api.sandbox.africastalking.com/version1/messaging", "https://content.africastalking.com/version1/messaging"))
+        End Get
+    End Property
+
+    Private ReadOnly Property BulkSmsUrlString() As String
         Get
             Return ApiHost & "/version1/messaging"
         End Get

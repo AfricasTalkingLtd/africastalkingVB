@@ -1,0 +1,32 @@
+name: .NETBuild
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        dotnet: [ '2.2.103', '3.0', '3.1.x' ]
+    name: Build ${{ matrix.dotnet }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: ${{ matrix.dotnet }}
+    - name: Install dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+    - name: Test
+      run: dotnet test --no-restore --verbosity normal
+    - name: Publish Package
+      uses: brandedoutcast/publish-nuget@v2.5.5
+      with:
+          PROJECT_FILE_PATH: AfricasTalkingGateway/AfricasTalkingGateway/AfricasTalkingGateway.vbproj
+          NUGET_KEY: ${{secrets.NUGET_VB_API_KEY}}
+          PACKAGE_NAME: AfricasTalking.NET.VB

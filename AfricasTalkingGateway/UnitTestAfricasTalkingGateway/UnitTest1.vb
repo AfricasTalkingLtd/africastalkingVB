@@ -5,7 +5,7 @@ Namespace UnitTestAfricasTalkingGateway
     <TestClass>
     Public Class UnitTest1
         Dim username As String = "sandbox"
-        Dim apikey As String = "afd635a4f295dd936312836c0b944d55f2a836e8ff2b63987da5e717cd5ff745"
+        Dim apikey As String = "6c36e56b86c24c2ff66adaff340d60793dff71ac304bc551f7056ca76dd8032a"
         ReadOnly _gateway As New AfricasTalkingGateway(username, apikey)
 
 
@@ -13,7 +13,7 @@ Namespace UnitTestAfricasTalkingGateway
         Public Sub TestSendMessage()
             'Tests that we can successfully Send Messages
             Dim message As String = "It works"
-            Dim recipient As String = "+254724587654"
+            Dim recipient As String = "+254720000001"
             Dim results As String = _gateway.SendMessage(recipient, message)
             ' Let's parse that result and ensure the contents does not have any Error messages 
             Dim statusMessage As Boolean = results.Contains("Success")
@@ -23,7 +23,7 @@ Namespace UnitTestAfricasTalkingGateway
         <TestMethod()>
         Public Sub TestBulkSms()
             Dim message As String = "This is a bulk SMS message"
-            Dim recipients As String = "+254714587654,+254791854473,+254712965433"
+            Dim recipients As String = "+254720000001,+254720000002,+254720000003"
             Dim result As String = _gateway.SendMessage(recipients, message)
             ' Let's ensure we can send bulk sms to comma separated numbers
             Dim bulkSmsStatus As Boolean = result.Contains("Success")
@@ -41,7 +41,7 @@ Namespace UnitTestAfricasTalkingGateway
 
         <TestMethod()>
         Public Sub TestTokenCreation()
-            Dim phoneNumber As String = "+254724587654"
+            Dim phoneNumber As String = "+254720000001"
             Dim tokenResult As String = _gateway.CreateCheckoutToken(phoneNumber)
             ' Expect a success message 
             Dim tokenStatus As Boolean = tokenResult.Contains("Success")
@@ -50,7 +50,7 @@ Namespace UnitTestAfricasTalkingGateway
 
         <TestMethod()>
         Public Sub TestCreateSubscription()
-            Dim phoneNumber As String = "+254724587654"
+            Dim phoneNumber As String = "+254720000001"
             Dim shortcode As String = "44005"
             Dim keyword As String = "coolguy"
             Dim token As String = "CkTkn_bb16a685-6f41-4373-b674-dc301980490c"
@@ -63,10 +63,10 @@ Namespace UnitTestAfricasTalkingGateway
         Public Sub TestAirtimeService()
             Dim airtimeRecipientsList As New ArrayList()
             Dim recipient1 As New Hashtable()
-            recipient1("phoneNumber") = "+254724587654"
+            recipient1("phoneNumber") = "+254720000001"
             recipient1("amount") = "KES 250"
             Dim recipient2 As New Hashtable()
-            recipient2("phoneNumber") = "+25471458754"
+            recipient2("phoneNumber") = "+254720000004"
             recipient2("amount") = "KES 3000"
             airtimeRecipientsList.Add(recipient1)
             airtimeRecipientsList.Add(recipient2)
@@ -77,8 +77,8 @@ Namespace UnitTestAfricasTalkingGateway
 
         <TestMethod()>
         Public Sub TestCallService()
-            Dim caller As String = "+254724587654"
-            Dim recipients As String = "+254714587654"
+            Dim caller As String = "+254720000000"
+            Dim recipients As String = "+254720000001"
             Dim callResult As String = _gateway.Call(caller, recipients)
             Dim callStatus As Boolean = callResult.Contains("Queued")
             Assert.IsTrue(callStatus)
@@ -86,8 +86,8 @@ Namespace UnitTestAfricasTalkingGateway
 
         <TestMethod()>
         Public Sub TestCallMultipleNumbers()
-            Dim caller As String = "+254724587654"
-            Dim recipients As String = "+254714587654,+254791854473,+254712965433"
+            Dim caller As String = "+254720000000"
+            Dim recipients As String = "+254720000001,+254720000002,+254720000003"
             Dim callResult As String = _gateway.Call(caller, recipients)
             Dim callStatus As Boolean = callResult.Contains("Queued")
             Assert.IsTrue(callStatus)
@@ -96,7 +96,7 @@ Namespace UnitTestAfricasTalkingGateway
         <TestMethod()>
         Public Sub TestMobileCheckout()
             Dim productName As String = "coolproduct"
-            Dim phoneNumber As String = "+254724587654"
+            Dim phoneNumber As String = "+254720000001"
             Dim amount As Decimal = 30853
             Dim channel As String = "mychannel"
             Dim currency As String = "KES"
@@ -132,8 +132,8 @@ Namespace UnitTestAfricasTalkingGateway
         Public Sub TestB2CPayments()
             Dim productName As String = "awesomeproduct"
             Dim currencyCode As String = "KES"
-            Dim rec1Num As String = "+254723881465"
-            Dim rec2Num As String = "+254724587654"
+            Dim rec1Num As String = "+254720000002"
+            Dim rec2Num As String = "+254720000001"
             Dim rec1Name As String = "T'Challa"
             Dim rec2Name As String = "Shuri"
             Dim rec1Amount As Decimal = 15320
