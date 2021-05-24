@@ -10,7 +10,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        dotnet: [ '2.2.103', '3.0']
+        dotnet: [ '2.2.103', '3.0', '3.1.x' ]
     name: Build ${{ matrix.dotnet }}
     steps:
     - uses: actions/checkout@v2
