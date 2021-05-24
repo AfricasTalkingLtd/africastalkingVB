@@ -142,7 +142,7 @@ Public Class AfricasTalkingGateway
         Throw New AfricasTalkingGatewayException(response)
     End Function
 
-    Public Function CreateSubscription(phoneNumber As String, shortCode As String, keyword As String, checkoutToken As String) As String
+    Public Function CreateSubscription(phoneNumber As String, shortCode As String, keyword As String) As String
         If phoneNumber.Length = 0 OrElse shortCode.Length = 0 OrElse keyword.Length = 0 Then
             Throw New AfricasTalkingGatewayException("Please supply phone number, short code and keyword")
         End If
@@ -151,7 +151,6 @@ Public Class AfricasTalkingGateway
         data("phoneNumber") = phoneNumber
         data("shortCode") = shortCode
         data("keyword") = keyword
-        data("checkoutToken") = checkoutToken
         Dim urlString As String = SubscriptionUrlString & "/create"
         Dim response As String = SendPostRequest(data, urlString)
         If _responseCode = CInt(HttpStatusCode.Created) Then

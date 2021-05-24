@@ -53,8 +53,7 @@ Namespace UnitTestAfricasTalkingGateway
             Dim phoneNumber As String = "+254720000001"
             Dim shortcode As String = "44005"
             Dim keyword As String = "coolguy"
-            Dim token As String = "CkTkn_bb16a685-6f41-4373-b674-dc301980490c"
-            Dim result As String = _gateway.CreateSubscription(phoneNumber, shortcode, keyword, token)
+            Dim result As String = _gateway.CreateSubscription(phoneNumber, shortcode, keyword)
             Dim resStatus As Boolean = result.Contains("Success")
             Assert.IsTrue(resStatus)
         End Sub
