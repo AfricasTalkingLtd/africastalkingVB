@@ -19,7 +19,7 @@ Take a look at the [API docs here](http://docs.africastalking.com/) for more inf
 
 + From the _command prompt/powershell window_ opened in your project directory, key in the following and press *Enter*. 
 ```powershell 
- dotnet add package AfricasTalking.NET.VB --version 2.2.0
+ dotnet add package AfricasTalking.NET.VB --version 2.2.1
 ```
 > Ensure you have the latest version of the package. Visit [Nuget](https://www.nuget.org/packages/AfricasTalking.NET.VB/) for more info on the latest release of this package. 
 
@@ -27,7 +27,7 @@ Take a look at the [API docs here](http://docs.africastalking.com/) for more inf
 
 + On your Nuget package manager console,key in the following and press *Enter* 
 ```powershell 
-Install-Package AfricasTalking.NET.VB -Version 2.2.0
+Install-Package AfricasTalking.NET.VB -Version 2.2.1
 ```
 > Ensure you have the latest version of the package. Visit [Nuget](https://www.nuget.org/packages/AfricasTalking.NET.VB/) for more info on the latest release of this package
 
@@ -129,7 +129,6 @@ Dim result As String = _gateway.SendPremiumMessage(recipients, message)
     - `shortCode` : This is a premium short code mapped to your account `REQUIRED`
     - `keyWord` : Value is a premium keyword under the above short code and mapped to your account. `REQUIRED`
     - `phoneNumber`: The phoneNumber to be subscribed `REQUIRED`
-    - `checkoutToken` :  This is a token used to validate the subscription request  `REQUIRED` 
 
      > If you have subscription products on your premium SMS short codes, you will need to configure a callback URL that we will send message payload to notifying you when users subscribe or unsubscribe from your products (currently supported on Safaricom).Visit [this link](http://docs.africastalking.com/subscriptions/callback) to learn more on how to setup a subscription callback  
 
